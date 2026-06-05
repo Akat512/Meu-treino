@@ -73,8 +73,28 @@ h2{font-size:22px;font-weight:500}
     <div class="stat-card"><div class="stat-lbl">Semana</div><div class="stat-val" id="st-wk">0/6</div></div>
   </div>
   <div id="day-list"></div>
+
+  <!-- BACKUP -->
+  <div style="margin-top:1.5rem;padding-top:1.25rem;border-top:0.5px solid var(--border)">
+    <p style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Backup do historico</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <button class="btn" style="justify-content:center;gap:7px" onclick="exportData()">
+        <i class="ti ti-download" style="font-size:16px"></i> Exportar
+      </button>
+      <button class="btn" style="justify-content:center;gap:7px" onclick="document.getElementById('file-imp').click()">
+        <i class="ti ti-upload" style="font-size:16px"></i> Importar
+      </button>
+    </div>
+    <p style="font-size:11px;color:var(--text3);margin-top:8px;text-align:center">
+      Exporte no celular &middot; Importe no site (ou vice-versa)
+    </p>
+  </div>
+  <input type="file" id="file-imp" accept=".json" style="display:none" onchange="importData(event)">
 </div>
 </div>
+
+<!-- TOAST -->
+<div id="toast" style="position:fixed;bottom:calc(1.5rem + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%) translateY(20px);background:#1a1a1a;color:#fff;padding:10px 20px;border-radius:99px;font-size:14px;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;white-space:nowrap;z-index:999"></div>
 
 <!-- DAY -->
 <div id="s-day" class="screen">
@@ -466,6 +486,52 @@ function svgChart(data,color){
 
 load();
 renderHome();
+
+/* ── EXPORT / IMPORT ── */
+function exportData(){
+  if(!Object.keys(logs).length){showToast('Nenhum treino para exportar ainda.');return;}
+  const json=JSON.stringify(logs,null,2);
+  const blob=new Blob([json],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const date=new Date().toISOString().slice(0,10);
+  a.href=url;a.download=`treino-backup-${date}.json`;
+  document.body.appendChild(a);a.click();
+  document.body.removeChild(a);URL.revokeObjectURL(url);
+  showToast('Backup exportado com sucesso!');
+}
+
+function importData(event){
+  const file=event.target.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const data=JSON.parse(e.target.result);
+      if(typeof data!=='object'||Array.isArray(data))throw new Error();
+      // Merge: mantém treinos existentes e adiciona os importados
+      const merged={...logs,...data};
+      logs=merged;
+      save();
+      renderHome();
+      showToast('Historico importado! '+Object.keys(data).length+' treinos carregados.');
+    }catch{
+      showToast('Arquivo invalido. Use um backup exportado pelo app.');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value=''; // reset input
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.style.opacity='1';t.style.transform='translateX(-50%) translateY(0)';
+  clearTimeout(t._timer);
+  t._timer=setTimeout(()=>{
+    t.style.opacity='0';t.style.transform='translateX(-50%) translateY(20px)';
+  },3000);
+}
 </script>
 </body>
 </html>
